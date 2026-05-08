@@ -1,0 +1,37 @@
+{
+  "name": "vibe-check-recon",
+  "version": "0.1.0",
+  "description": "Read-only public-surface security recon for AI-built apps. Finds the obvious stuff your hosting platform exposed before you ship.",
+  "bin": {
+    "vibe-check-recon": "./bin/cli.js"
+  },
+  "main": "./lib/recon.js",
+  "scripts": {
+    "test": "node test/smoke.test.js"
+  },
+  "keywords": [
+    "security",
+    "recon",
+    "audit",
+    "vibe-coding",
+    "pre-launch",
+    "supabase",
+    "firebase",
+    "vercel",
+    "next.js",
+    "lovable",
+    "cursor",
+    "bolt",
+    "v0"
+  ],
+  "author": "Matt Turley <mt@uxcontinuum.com> (https://uxcontinuum.com/vibe-audit)",
+  "license": "MIT",
+  "homepage": "https://github.com/turleydesigns/vibe-check-recon#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/turleydesigns/vibe-check-recon.git"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
