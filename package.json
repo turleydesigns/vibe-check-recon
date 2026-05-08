@@ -1,13 +1,24 @@
 {
   "name": "vibe-check-recon",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Read-only public-surface security recon for AI-built apps. Finds the obvious stuff your hosting platform exposed before you ship.",
   "bin": {
     "vibe-check-recon": "bin/cli.js"
   },
   "main": "./lib/recon.js",
   "scripts": {
-    "test": "node test/smoke.test.js"
+    "test": "node test/fixtures.test.js && node test/smoke.test.js",
+    "test:fixtures": "node test/fixtures.test.js",
+    "test:smoke": "node test/smoke.test.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "bugs": {
+    "url": "https://github.com/turleydesigns/vibe-check-recon/issues"
   },
   "keywords": [
     "security",
