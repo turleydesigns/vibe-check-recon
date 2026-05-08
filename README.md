@@ -37,18 +37,39 @@ It's safe to run against your own apps and apps you have permission to test.
 
 ## What this *isn't*
 
-This is the **30-second public-surface check**. It catches the obvious stuff that your hosting platform exposed by default and the leaked-API-key class of bug.
+This is the **30-second public-surface check**. It reads what your server already serves and flags the obvious classes of mistake (`.git/` exposed, API keys in the bundle, public buckets, weak headers, etc).
 
-It does NOT catch the things that need a human reviewer:
+It does NOT touch the inside of your application. The interesting bugs live there.
 
-- Subtle RLS / row-level-security holes where two of three policies are right and the third opens a hole
-- Business-logic auth bypasses (the user-id parameter trick)
-- Payment webhook race conditions and missing idempotency
-- Server-to-client environment leakage via `getServerSideProps` or RSC props
-- UX red flags that quietly cost conversions
-- Specific domain-modeling mistakes that turn into security holes
+### Free finding vs paid finding — concrete example
 
-If you want that level of review, that's what the [Vibe Audit](https://uxcontinuum.com/vibe-audit) is for. Senior developer reads your code, ranked written report, 7 categories.
+You build a Lovable app. It uses Supabase. You ship it. You run `npx vibe-check-recon https://yourapp.com`.
+
+**What the free recon finds:**
+
+> [info] Possible supabase_url in client bundle
+>   `https://abcd1234.supabase.co`
+>   This is expected — Supabase anon keys + URLs are public by design when paired with correct Row Level Security policies.
+
+That's a true positive but a low-impact one. It just confirms the stack. The real question is whether the RLS policies are *actually* correct.
+
+**What the paid [Vibe Audit](https://uxcontinuum.com/vibe-audit) finds, on the same app:**
+
+> [critical] RLS policy on `bookings` table grants `select` to `authenticated` role unconditionally
+>   `create policy "Users can view bookings" on bookings for select to authenticated using (true);`
+>   Any logged-in user (including freshly-signed-up attackers) can read every row in the `bookings` table, including other users' contact details, party sizes, and payment status. The intended policy was almost certainly `using (auth.uid() = user_id)`. Verified by signing in as a test account and querying `bookings` directly via the anon key.
+>   **Patch:**
+>   ```sql
+>   drop policy "Users can view bookings" on bookings;
+>   create policy "Users can view their own bookings" on bookings
+>     for select to authenticated using (auth.uid() = user_id);
+>   ```
+
+Same stack. Same recon output. Different layer.
+
+The free tool finds public surface. The paid audit reads your actual code, validates intent against the schema, and writes you the patch. That's the diff.
+
+If your app has users, payments, or accounts — get the [Vibe Audit](https://uxcontinuum.com/vibe-audit). $99 founder special, 12-hour turnaround, ranked written report covering auth, data exposure, DB security, payments, env config, performance, and UX red flags.
 
 ## Install
 
