@@ -1,6 +1,6 @@
 {
   "name": "vibe-check-recon",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Read-only public-surface security recon for AI-built apps. Finds the obvious stuff your hosting platform exposed before you ship.",
   "bin": {
     "vibe-check-recon": "bin/cli.js"

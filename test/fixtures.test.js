@@ -217,6 +217,37 @@ async function t(name, fn) {
     assert.strictEqual(cookie.severity, 'medium');
   });
 
+  // 13. Vercel Security Checkpoint → bot_protection set, no findings, ok=true.
+  await t('Vercel Security Checkpoint → bot_protection surfaced, no findings', async () => {
+    recon.__setFetchUrlForTest(makeFetchMock({
+      'https://test.app/': {
+        status: 200,
+        headers: SPA_HEADERS,
+        body: '<!DOCTYPE html><html><head><title>Vercel Security Checkpoint</title></head><body>...</body></html>',
+      },
+    }));
+    const r = await recon.runRecon('https://test.app');
+    assert.strictEqual(r.ok, true, 'ok should be true (we got a response)');
+    assert.ok(r.bot_protection, 'expected bot_protection field');
+    assert.strictEqual(r.bot_protection.type, 'vercel_security_checkpoint');
+    assert.strictEqual(r.findings.length, 0, 'should not surface findings when blocked');
+  });
+
+  // 14. Cloudflare interactive challenge → bot_protection.type=cloudflare_challenge.
+  await t('Cloudflare "Just a moment..." → bot_protection.type=cloudflare_challenge', async () => {
+    recon.__setFetchUrlForTest(makeFetchMock({
+      'https://test.app/': {
+        status: 200,
+        headers: SPA_HEADERS,
+        body: '<!DOCTYPE html><html><head><title>Just a moment...</title></head><body><script>cf-chl-bypass</script></body></html>',
+      },
+    }));
+    const r = await recon.runRecon('https://test.app');
+    assert.strictEqual(r.ok, true);
+    assert.ok(r.bot_protection);
+    assert.strictEqual(r.bot_protection.type, 'cloudflare_challenge');
+  });
+
   console.log('------------------------------');
   console.log(`Passed: ${pass} / ${pass + fail}`);
   if (fail > 0) process.exit(1);

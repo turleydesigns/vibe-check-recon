@@ -188,6 +188,17 @@ Do you own this target or have permission to test it? [y/N] `);
   console.log(`Contacts:     ${Object.keys(result.contacts || {}).length ? JSON.stringify(result.contacts) : '(none found)'}`);
   console.log('');
 
+  if (result.bot_protection) {
+    console.log(`  ⚠ Bot protection active: ${result.bot_protection.type}`);
+    console.log(`    ${result.bot_protection.detail}`);
+    console.log('');
+    console.log('  No findings reported because the recon never got past the gate.');
+    console.log('  This is NOT the same as "clean" — re-run from a real browser, an');
+    console.log('  allow-listed IP, or an authenticated session to get a real signal.');
+    console.log('');
+    return;
+  }
+
   if (!result.findings.length) {
     console.log('  ✓ No findings. Public surface looks clean.');
     console.log('');
