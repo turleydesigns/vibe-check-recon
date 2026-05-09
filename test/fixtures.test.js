@@ -248,6 +248,59 @@ async function t(name, fn) {
     assert.strictEqual(r.bot_protection.type, 'cloudflare_challenge');
   });
 
+  // 15. Storybook in production → medium severity finding.
+  await t('Storybook static build at /storybook/ → medium severity', async () => {
+    recon.__setFetchUrlForTest(makeFetchMock({
+      'https://test.app/': spaFallback(),
+      'https://test.app/storybook/': {
+        status: 200,
+        headers: SPA_HEADERS,
+        body: '<!DOCTYPE html><html><head><title>Storybook</title></head><body><div id="sb-show-main">storybook-preview-iframe</div></body></html>',
+      },
+    }));
+    const r = await recon.runRecon('https://test.app');
+    const sb = r.findings.find(f => f.title.toLowerCase().includes('storybook'));
+    assert.ok(sb, `expected storybook finding, got: ${r.findings.map(f => f.title).join(', ')}`);
+    assert.strictEqual(sb.severity, 'medium');
+  });
+
+  // 16. GraphQL introspection enabled → medium severity finding.
+  await t('GraphQL /graphql with introspection response → medium severity', async () => {
+    recon.__setFetchUrlForTest(makeFetchMock({
+      'https://test.app/': spaFallback(),
+      'https://test.app/graphql': {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: '{"data":{"__schema":{"queryType":{"name":"Query"},"mutationType":{"name":"Mutation"},"types":[{"name":"User"}]}}}',
+      },
+    }));
+    const r = await recon.runRecon('https://test.app');
+    const gql = r.findings.find(f => f.title.toLowerCase().includes('graphql'));
+    assert.ok(gql, `expected graphql introspection finding, got: ${r.findings.map(f => f.title).join(', ')}`);
+    assert.strictEqual(gql.severity, 'medium');
+  });
+
+  // 17. robots.txt sensitive path reachable → low severity finding.
+  await t('robots.txt-listed /admin reachable → low severity', async () => {
+    recon.__setFetchUrlForTest(makeFetchMock({
+      'https://test.app/': spaFallback(),
+      'https://test.app/robots.txt': {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+        body: 'User-agent: *\nDisallow: /admin/\nDisallow: /internal/\n',
+      },
+      'https://test.app/admin/': {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+        body: '<!DOCTYPE html><html><head><title>Admin Dashboard</title></head><body><h1>Admin Panel</h1><form><input name="password"></form></body></html>',
+      },
+    }));
+    const r = await recon.runRecon('https://test.app');
+    const robotsHit = r.findings.find(f => f.title.toLowerCase().includes('robots.txt-listed'));
+    assert.ok(robotsHit, `expected robots.txt finding, got: ${r.findings.map(f => f.title).join(', ')}`);
+    assert.strictEqual(robotsHit.severity, 'low');
+  });
+
   console.log('------------------------------');
   console.log(`Passed: ${pass} / ${pass + fail}`);
   if (fail > 0) process.exit(1);
