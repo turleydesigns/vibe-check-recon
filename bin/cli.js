@@ -2,14 +2,21 @@
 'use strict';
 
 const { runRecon, pickTopFinding } = require('../lib/recon');
+const { toSarif, toJUnitXml } = require('../lib/output');
 
 const args = process.argv.slice(2);
 const flagJson = args.includes('--json');
 const flagTop = args.includes('--top');
+const flagSarif = args.includes('--sarif');
+const flagJUnit = args.includes('--junit');
 const flagPermission = args.includes('--i-have-permission');
 const flagYes = args.includes('--yes') || args.includes('-y');
 const flagVersion = args.includes('--version') || args.includes('-V');
-const url = args.find(a => !a.startsWith('--') && !a.startsWith('-'));
+const flagScopeOwn = args.includes('--scope=own-domain-only') ||
+                    (args.indexOf('--scope') >= 0 && args[args.indexOf('--scope') + 1] === 'own-domain-only');
+const timeoutIdx = args.indexOf('--timeout');
+const flagTimeoutMs = timeoutIdx >= 0 ? Math.max(1000, parseInt(args[timeoutIdx + 1] || '0', 10) || 0) : 0;
+const url = args.find(a => !a.startsWith('--') && !a.startsWith('-') && a !== 'own-domain-only');
 
 if (flagVersion) {
   console.log(require('../package.json').version);
@@ -23,7 +30,15 @@ USAGE:
   npx vibe-check-recon <url>                Pretty-print findings
   npx vibe-check-recon <url> --json         Output full JSON
   npx vibe-check-recon <url> --top          Output only the highest-severity finding
+  npx vibe-check-recon <url> --sarif        Emit SARIF v2.1.0 (GitHub Code Scanning)
+  npx vibe-check-recon <url> --junit        Emit JUnit XML (CI test runners)
   npx vibe-check-recon --version            Print version
+
+SCOPE:
+  --scope own-domain-only   Skip subdomain enumeration (crt.sh + Brave +
+                            spicy-sub probe). Faster scan; only checks
+                            the URL you provided.
+  --timeout <ms>            Cap total scan wall time. Best-effort.
 
 PERMISSION:
   --i-have-permission       Skip the consent prompt (you've confirmed you
@@ -33,6 +48,8 @@ PERMISSION:
 EXAMPLES:
   npx vibe-check-recon https://my-app.com
   npx vibe-check-recon mysite.com --json
+  npx vibe-check-recon https://my-app.com --sarif > findings.sarif
+  npx vibe-check-recon https://my-app.com --scope own-domain-only --timeout 30000
   npx vibe-check-recon https://staging.my-app.com --i-have-permission
 
 OPTIONAL ENV:
@@ -110,11 +127,35 @@ Do you own this target or have permission to test it? [y/N] `);
     process.exit(0);
   }
 
-  const result = await runRecon(url);
+  // Apply --timeout best-effort with a hard wall-clock kill.
+  const reconPromise = runRecon(url, {
+    skipSubdomains: flagScopeOwn,
+  });
+  let result;
+  if (flagTimeoutMs > 0) {
+    result = await Promise.race([
+      reconPromise,
+      new Promise(resolve => setTimeout(() => resolve({ ok: false, error: 'timeout', url, findings: [] }), flagTimeoutMs)),
+    ]);
+  } else {
+    result = await reconPromise;
+  }
 
   if (!result.ok) {
     console.error(`Error: ${result.error}`);
     process.exit(1);
+  }
+
+  if (flagSarif) {
+    const pkg = require('../package.json');
+    console.log(JSON.stringify(toSarif(result, pkg.version), null, 2));
+    return;
+  }
+
+  if (flagJUnit) {
+    const pkg = require('../package.json');
+    console.log(toJUnitXml(result, pkg.version));
+    return;
   }
 
   if (flagJson) {
